@@ -72,6 +72,8 @@ async function seed() {
 
   // Drop and recreate tables for a clean seed
   sqlite.exec(`
+    DROP TABLE IF EXISTS bookmarks;
+    DROP TABLE IF EXISTS notes;
     DROP TABLE IF EXISTS comments;
     DROP TABLE IF EXISTS course_ratings;
     DROP TABLE IF EXISTS video_watch_events;
@@ -2001,6 +2003,48 @@ This course is still in draft while the cluster examples are rewritten against t
     `Created ${countRows(schema.comments)} lesson comments across ${countRows(schema.comments, isNull(schema.comments.parentId))} threads.`
   );
 
+  // ─── Bookmarks and Notes ───
+  // Private to each Student, on Lessons of Courses they are enrolled in.
+
+  db.insert(schema.bookmarks)
+    .values([
+      { userId: students[0].id, lessonId: course1LessonIds[7], createdAt: daysAgo(12) },
+      { userId: students[0].id, lessonId: course1LessonIds[3], createdAt: daysAgo(6) },
+      { userId: students[0].id, lessonId: course2LessonIds[1], createdAt: hoursAgo(5) },
+      { userId: students[2].id, lessonId: course1LessonIds[4], createdAt: daysAgo(3) },
+    ])
+    .run();
+
+  db.insert(schema.notes)
+    .values([
+      {
+        userId: students[0].id,
+        lessonId: course1LessonIds[7],
+        body: "Generics: the <T> is a placeholder the caller fills in.\nRewatch the constraint part (extends) before the quiz.",
+        createdAt: daysAgo(12),
+        updatedAt: daysAgo(2),
+      },
+      {
+        userId: students[0].id,
+        lessonId: course1LessonIds[2],
+        body: "# not a heading, just a reminder\n*tsc --init* first, then tweak strict.",
+        createdAt: daysAgo(20),
+        updatedAt: daysAgo(20),
+      },
+      {
+        userId: students[2].id,
+        lessonId: course1LessonIds[4],
+        body: "Union vs intersection: | is either, & is both.",
+        createdAt: daysAgo(3),
+        updatedAt: hoursAgo(20),
+      },
+    ])
+    .run();
+
+  console.log(
+    `Created ${countRows(schema.bookmarks)} bookmarks and ${countRows(schema.notes)} notes.`
+  );
+
   // ─── Lesson Progress ───
 
   // Helper to mark lessons as complete
@@ -2847,6 +2891,9 @@ This course is still in draft while the cluster examples are rewritten against t
   console.log(`  Enrollments: ${countRows(schema.enrollments)}`);
   console.log(`  Course ratings: ${countRows(schema.courseRatings)}`);
   console.log(`  Lesson comments: ${countRows(schema.comments)}`);
+  console.log(
+    `  Bookmarks: ${countRows(schema.bookmarks)}, notes: ${countRows(schema.notes)}`
+  );
   console.log(
     `  Lesson progress: ${countRows(schema.lessonProgress)} (${countRows(schema.lessonProgress, eq(schema.lessonProgress.status, LessonProgressStatus.Completed))} completed)`
   );
