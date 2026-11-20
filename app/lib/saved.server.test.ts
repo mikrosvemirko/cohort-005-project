@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import { createTestDb, seedBaseData } from "~/test/setup";
 import * as schema from "~/db/schema";
 import { UserRole } from "~/db/schema";
@@ -169,6 +170,29 @@ describe("the Saved lists", () => {
       "First, edited.",
       "Second.",
     ]);
+  });
+});
+
+describe("deleting what a Bookmark or Note hangs off", () => {
+  it("removes them with the Lesson instead of blocking its delete", () => {
+    toggleBookmark(db, base.user.id, firstLessonId, NOW);
+    saveNote(db, base.user.id, firstLessonId, "Gone with the Lesson.", NOW);
+
+    db.delete(schema.lessons).where(eq(schema.lessons.id, firstLessonId)).run();
+
+    expect(listBookmarks(db, base.user.id)).toEqual([]);
+    expect(listNotes(db, base.user.id)).toEqual([]);
+  });
+
+  it("removes them with the Student", () => {
+    const otherStudent = addStudent("Ben");
+    toggleBookmark(db, otherStudent.id, firstLessonId, NOW);
+    saveNote(db, otherStudent.id, firstLessonId, "Mine.", NOW);
+
+    db.delete(schema.users).where(eq(schema.users.id, otherStudent.id)).run();
+
+    expect(isBookmarked(db, otherStudent.id, firstLessonId)).toBe(false);
+    expect(getNote(db, otherStudent.id, firstLessonId)).toBeUndefined();
   });
 });
 
