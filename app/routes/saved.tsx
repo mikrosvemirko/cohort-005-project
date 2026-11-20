@@ -74,7 +74,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   );
 }
 
-/** One list on the Saved page, with a placeholder card when it is empty. */
+/** One list on the Saved Page, with a placeholder card when it is empty. */
 function SavedSection({
   title,
   icon,
@@ -107,7 +107,7 @@ function SavedSection({
 }
 
 /**
- * A row on the Saved page: a link back to the Lesson, the Course and Module it
+ * A row on the Saved Page: a link back to the Lesson, the Course and Module it
  * sits in, and anything the row adds below that.
  */
 function SavedLessonCard({

@@ -1,13 +1,13 @@
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, type SQL } from "drizzle-orm";
 import * as schema from "~/db/schema";
 import { bookmarks, courses, lessons, modules, notes } from "~/db/schema";
-import { MAX_NOTE_LENGTH } from "~/lib/notes";
+import { MAX_NOTE_LENGTH, NOTE_TOO_LONG_MESSAGE } from "~/lib/notes";
 
 // ─── Bookmarks and Notes ───
 // What a Student attaches to a Lesson for themselves and nobody else. See
 // GLOSSARY.md. A Note is private: nothing outside the owning Student's Lesson
-// page and Saved page may read Note bodies, so every read here is scoped to
+// page and Saved Page may read Note bodies, so every read here is scoped to
 // one Student.
 //
 // Every function takes the database first, so tests can hand in an in-memory
@@ -17,14 +17,22 @@ export type Db = BetterSQLite3Database<typeof schema>;
 
 type Note = typeof notes.$inferSelect;
 
+/** Matches the Student's one Bookmark on the Lesson. */
+function bookmarkOf(studentId: number, lessonId: number): SQL | undefined {
+  return and(eq(bookmarks.userId, studentId), eq(bookmarks.lessonId, lessonId));
+}
+
+/** Matches the Student's one Note on the Lesson. */
+function noteOf(studentId: number, lessonId: number): SQL | undefined {
+  return and(eq(notes.userId, studentId), eq(notes.lessonId, lessonId));
+}
+
 /** Whether the Student has a Bookmark on the Lesson. */
 export function isBookmarked(db: Db, studentId: number, lessonId: number) {
   return !!db
     .select({ id: bookmarks.id })
     .from(bookmarks)
-    .where(
-      and(eq(bookmarks.userId, studentId), eq(bookmarks.lessonId, lessonId))
-    )
+    .where(bookmarkOf(studentId, lessonId))
     .get();
 }
 
@@ -41,9 +49,7 @@ export function toggleBookmark(
 ): boolean {
   const removed = db
     .delete(bookmarks)
-    .where(
-      and(eq(bookmarks.userId, studentId), eq(bookmarks.lessonId, lessonId))
-    )
+    .where(bookmarkOf(studentId, lessonId))
     .returning({ id: bookmarks.id })
     .all();
   if (removed.length > 0) return false;
@@ -64,13 +70,11 @@ export function getNote(
   return db
     .select()
     .from(notes)
-    .where(and(eq(notes.userId, studentId), eq(notes.lessonId, lessonId)))
+    .where(noteOf(studentId, lessonId))
     .get();
 }
 
-export type SaveNoteResult =
-  | { ok: true; note: Note | null }
-  | { ok: false; error: string };
+export type SaveNoteResult = { ok: true } | { ok: false; error: string };
 
 /**
  * Saves the Student's Note on the Lesson. The body is trimmed and refused if
@@ -87,22 +91,18 @@ export function saveNote(
 ): SaveNoteResult {
   const trimmed = body.trim();
   if (trimmed.length > MAX_NOTE_LENGTH) {
-    return {
-      ok: false,
-      error: `A note must be ${MAX_NOTE_LENGTH.toLocaleString("en-US")} characters or fewer.`,
-    };
+    return { ok: false, error: NOTE_TOO_LONG_MESSAGE };
   }
 
   if (trimmed.length === 0) {
     db.delete(notes)
-      .where(and(eq(notes.userId, studentId), eq(notes.lessonId, lessonId)))
+      .where(noteOf(studentId, lessonId))
       .run();
-    return { ok: true, note: null };
+    return { ok: true };
   }
 
   const timestamp = now.toISOString();
-  const note = db
-    .insert(notes)
+  db.insert(notes)
     .values({
       userId: studentId,
       lessonId,
@@ -114,10 +114,9 @@ export function saveNote(
       target: [notes.userId, notes.lessonId],
       set: { body: trimmed, updatedAt: timestamp },
     })
-    .returning()
-    .get();
+    .run();
 
-  return { ok: true, note };
+  return { ok: true };
 }
 
 /** The Lesson a Bookmark or Note points at, and the Course it belongs to. */
@@ -137,7 +136,7 @@ const lessonColumns = {
   courseSlug: courses.slug,
 };
 
-/** The Student's Bookmarks for the Saved page, newest first. */
+/** The Student's Bookmarks for the Saved Page, newest first. */
 export function listBookmarks(db: Db, studentId: number) {
   return db
     .select({ id: bookmarks.id, createdAt: bookmarks.createdAt, ...lessonColumns })
@@ -150,7 +149,7 @@ export function listBookmarks(db: Db, studentId: number) {
     .all();
 }
 
-/** The Student's Notes for the Saved page, most recently edited first. */
+/** The Student's Notes for the Saved Page, most recently edited first. */
 export function listNotes(db: Db, studentId: number) {
   return db
     .select({

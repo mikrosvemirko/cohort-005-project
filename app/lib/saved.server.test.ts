@@ -84,7 +84,7 @@ describe("saving a Note", () => {
   it("creates the Note with the body trimmed", () => {
     const result = saveNote(db, base.user.id, firstLessonId, "  Read twice.  ", NOW);
 
-    expect(result).toMatchObject({ ok: true, note: { body: "Read twice." } });
+    expect(result).toEqual({ ok: true });
     expect(getNote(db, base.user.id, firstLessonId)).toMatchObject({
       body: "Read twice.",
       createdAt: NOW.toISOString(),
@@ -135,7 +135,6 @@ describe("saving a Note", () => {
 
     expect(saveNote(db, base.user.id, firstLessonId, "   ", NOW)).toEqual({
       ok: true,
-      note: null,
     });
     expect(getNote(db, base.user.id, firstLessonId)).toBeUndefined();
   });

@@ -122,11 +122,11 @@ _Avoid_: Favourite, star, saved item
 
 **Note**:
 A Student's own writing about a Lesson, private to the Student who wrote it.
-One per Student per Lesson. A Note is not a Comment — a Comment is addressed
-to other people, a Note is addressed to nobody.
+One per Student per Lesson. A Note is not a Discussion Question or Discussion
+Reply — those are addressed to other people, a Note is addressed to nobody.
 _Avoid_: Annotation, scratchpad, memo
 
-**Saved page**:
+**Saved Page**:
 The page at `/saved` where a Student sees their own Bookmarks and Notes, newest
 first, each linking back to its Lesson.
 _Avoid_: Library, favourites page

@@ -17,7 +17,7 @@ import {
   saveNote,
   toggleBookmark,
 } from "~/lib/saved.server";
-import { MAX_NOTE_LENGTH } from "~/lib/notes";
+import { MAX_NOTE_LENGTH, NOTE_TOO_LONG_MESSAGE } from "~/lib/notes";
 import {
   CommentThread,
   type RenderedComment,
@@ -94,13 +94,7 @@ const editCommentSchema = z.object({
 });
 
 const saveNoteSchema = z.object({
-  body: z
-    .string()
-    .trim()
-    .max(
-      MAX_NOTE_LENGTH,
-      `A note must be ${MAX_NOTE_LENGTH.toLocaleString("en-US")} characters or fewer.`
-    ),
+  body: z.string().trim().max(MAX_NOTE_LENGTH, NOTE_TOO_LONG_MESSAGE),
 });
 
 const deleteCommentSchema = z.object({
@@ -724,11 +718,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   // The current Student's own Bookmark and Note. Both follow the same
   // content-access bar as the discussion, and a signed-out visitor gets neither.
-  const canSave = canViewContent && currentUserId !== null;
-  const bookmarked =
-    canSave && currentUserId ? isBookmarked(db, currentUserId, lessonId) : false;
-  const note =
-    canSave && currentUserId ? getNote(db, currentUserId, lessonId) : undefined;
+  const saverId = canViewContent ? currentUserId : null;
+  const canSave = saverId !== null;
+  const bookmarked = saverId ? isBookmarked(db, saverId, lessonId) : false;
+  const note = saverId ? getNote(db, saverId, lessonId) : undefined;
 
   // Render lesson content from Markdown to HTML server-side
   const contentHtml = lesson.content
@@ -1313,19 +1306,23 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
 
 /** Adds or removes the Student's Bookmark on this Lesson. */
 function BookmarkToggle({ bookmarked }: { bookmarked: boolean }) {
-  const fetcher = useFetcher();
+  const fetcher = useFetcher<{ ok: boolean; bookmarked?: boolean }>();
   const isSaving = fetcher.state !== "idle";
+  // Flip straight away while the toggle is in flight, then trust the server.
+  const shownBookmarked = fetcher.formData
+    ? !bookmarked
+    : (fetcher.data?.bookmarked ?? bookmarked);
 
   return (
     <fetcher.Form method="post">
       <input type="hidden" name="intent" value="toggle-bookmark" />
       <Button type="submit" variant="outline" size="sm" disabled={isSaving}>
-        {bookmarked ? (
+        {shownBookmarked ? (
           <BookmarkCheck className="mr-1.5 size-4" />
         ) : (
           <Bookmark className="mr-1.5 size-4" />
         )}
-        {bookmarked ? "Bookmarked" : "Bookmark"}
+        {shownBookmarked ? "Bookmarked" : "Bookmark"}
       </Button>
     </fetcher.Form>
   );
@@ -1346,7 +1343,7 @@ function LessonNote({
       <CardContent className="space-y-3 pt-6">
         <div className="flex items-center gap-2">
           <NotebookPen className="size-4 text-muted-foreground" />
-          <h2 className="font-semibold">Your notes</h2>
+          <h2 className="font-semibold">Your note</h2>
         </div>
 
         <fetcher.Form method="post" className="space-y-3">
